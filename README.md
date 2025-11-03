@@ -54,7 +54,7 @@ Menu disponível:
 ### Uso Programático
 
 ```python
-from datetime import datetime
+from datetime import datetime, timedelta
 from time_tracker import TimeTracker, TimeAnalyzer
 
 # Criar tracker
