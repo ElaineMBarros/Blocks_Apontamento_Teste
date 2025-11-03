@@ -28,7 +28,8 @@ class TimeEntry:
         if not self.end_time:
             return 0.0
         delta = self.end_time - self.start_time
-        return delta.total_seconds() / 3600
+        # Retorna 0 se end_time for anterior a start_time
+        return max(0.0, delta.total_seconds() / 3600)
     
     def to_dict(self) -> dict:
         """Converte para dicionário"""

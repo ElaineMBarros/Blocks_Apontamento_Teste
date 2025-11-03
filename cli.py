@@ -3,7 +3,6 @@
 CLI para aplicação de análise de apontamento
 """
 
-import sys
 from datetime import datetime
 from time_tracker import TimeTracker, TimeAnalyzer
 

@@ -4,8 +4,6 @@ Testes para aplicação de análise de apontamento
 
 import pytest
 from datetime import datetime, timedelta
-import json
-import os
 from time_tracker import TimeEntry, TimeTracker, TimeAnalyzer
 
 
@@ -44,6 +42,15 @@ class TestTimeEntry:
         start = datetime(2025, 11, 1, 9, 0)
         entry = TimeEntry("Projeto A", "Desenvolvimento", start)
         
+        assert entry.duration_hours() == 0.0
+    
+    def test_duration_hours_negative(self):
+        """Testa duração quando end_time é anterior a start_time"""
+        start = datetime(2025, 11, 1, 17, 0)
+        end = datetime(2025, 11, 1, 9, 0)
+        entry = TimeEntry("Projeto A", "Desenvolvimento", start, end)
+        
+        # Deve retornar 0 ao invés de valor negativo
         assert entry.duration_hours() == 0.0
     
     def test_to_dict(self):

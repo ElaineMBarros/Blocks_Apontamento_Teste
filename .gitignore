@@ -40,5 +40,6 @@ htmlcov/
 # Data files
 *.db
 *.sqlite
-*.json
+apontamentos.json
+demo_apontamentos.json
 data/
