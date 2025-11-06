@@ -283,46 +283,61 @@ def render_chat_lateral(df_filtrado, data_inicio, data_fim, validador_selecionad
             
             st.markdown("---")
             
-            # Input personalizado com formulário
-            with st.form("chat_form", clear_on_submit=True):
-                pergunta_input = st.text_input("✍️ Sua pergunta:", placeholder="Ex: Como está o desempenho da equipe?")
-                submitted = st.form_submit_button("📤 Enviar", use_container_width=True)
-                
-                if submitted and pergunta_input and not ("processing_chat" in st.session_state and st.session_state.processing_chat):
-                    processar_pergunta_chat(pergunta_input, df_filtrado, data_inicio, data_fim, validador_selecionado, faixa_referencia, openai_key)
-            
-            # Histórico de chat em formato de conversa
+            # Histórico de chat em formato de conversa (ACIMA)
             if "chat_messages" in st.session_state and st.session_state.chat_messages:
                 st.subheader("💬 Histórico")
                 
-                # Container com rolagem para o histórico
-                chat_html = '<div class="chat-container">'
-                
-                # Mostrar mensagens (mais recentes no topo devido ao flex-direction: column-reverse)
-                messages = st.session_state.chat_messages
-                for msg in reversed(messages[-10:]):  # Últimas 10 mensagens, invertidas
-                    role = msg["role"]
-                    content = msg["content"]
-                    
-                    if role == "user":
-                        chat_html += f'''
-                        <div class="chat-message user">
-                            <div class="message-content user">
-                                {content}
+                # Container com rolagem usando st.container
+                with st.container():
+                    # Mostrar mensagens em ordem (mais antigas primeiro, mais recentes embaixo)
+                    messages = st.session_state.chat_messages
+                    for msg in messages[-10:]:  # Últimas 10 mensagens
+                        role = msg["role"]
+                        content = msg["content"]
+                        
+                        if role == "user":
+                            # Mensagem do usuário (direita)
+                            st.markdown(f"""
+                            <div style="display: flex; justify-content: flex-end; margin-bottom: 1rem;">
+                                <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
+                                            color: white; 
+                                            padding: 0.75rem 1rem; 
+                                            border-radius: 15px; 
+                                            border-bottom-right-radius: 5px;
+                                            max-width: 80%;
+                                            word-wrap: break-word;">
+                                    {content}
+                                </div>
                             </div>
-                        </div>
-                        '''
-                    elif role == "assistant":
-                        chat_html += f'''
-                        <div class="chat-message assistant">
-                            <div class="message-content assistant">
-                                {content}
+                            """, unsafe_allow_html=True)
+                        elif role == "assistant":
+                            # Mensagem da IA (esquerda)
+                            st.markdown(f"""
+                            <div style="display: flex; justify-content: flex-start; margin-bottom: 1rem;">
+                                <div style="background-color: white; 
+                                            border: 1px solid #dee2e6;
+                                            padding: 0.75rem 1rem; 
+                                            border-radius: 15px; 
+                                            border-bottom-left-radius: 5px;
+                                            max-width: 80%;
+                                            word-wrap: break-word;">
+                                    {content}
+                                </div>
                             </div>
-                        </div>
-                        '''
+                            """, unsafe_allow_html=True)
                 
-                chat_html += '</div>'
-                st.markdown(chat_html, unsafe_allow_html=True)
+                st.markdown("---")
+            
+            # Input personalizado com formulário (EMBAIXO)
+            with st.form("chat_form", clear_on_submit=True):
+                col_input, col_button = st.columns([4, 1])
+                with col_input:
+                    pergunta_input = st.text_input("✍️ Sua pergunta:", placeholder="Ex: Como está o desempenho da equipe?", label_visibility="collapsed")
+                with col_button:
+                    submitted = st.form_submit_button("📤 Enviar", use_container_width=True)
+                
+                if submitted and pergunta_input and not ("processing_chat" in st.session_state and st.session_state.processing_chat):
+                    processar_pergunta_chat(pergunta_input, df_filtrado, data_inicio, data_fim, validador_selecionado, faixa_referencia, openai_key)
             
             # Botão para limpar
             if st.button("🗑️ Limpar Chat", use_container_width=True):
