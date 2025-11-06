@@ -561,9 +561,6 @@ with st.sidebar:
     
     st.markdown("---")
     
-    # Botão para aplicar filtros
-    aplicar_filtros = st.button("🔄 Aplicar Filtros", use_container_width=True)
-    
     # Dicas de uso
     with st.expander("💡 Dicas de Uso"):
         st.markdown("""
