@@ -12,6 +12,7 @@ import os
 from scipy import stats
 import numpy as np
 from scipy import stats
+import html
 
 # Verificar OpenAI
 try:
@@ -274,7 +275,7 @@ def render_chat_lateral(df_filtrado, data_inicio, data_fim, validador_selecionad
                 messages = st.session_state.chat_messages
                 for msg in messages[-10:]:  # Últimas 10 mensagens
                     role = msg["role"]
-                    content = msg["content"]
+                    content = html.escape(msg["content"])  # Escapar HTML
                     
                     if role == "user":
                         chat_html += f'''
@@ -285,7 +286,8 @@ def render_chat_lateral(df_filtrado, data_inicio, data_fim, validador_selecionad
                                         border-radius: 15px; 
                                         border-bottom-right-radius: 5px;
                                         max-width: 80%;
-                                        word-wrap: break-word;">
+                                        word-wrap: break-word;
+                                        white-space: pre-wrap;">
                                 {content}
                             </div>
                         </div>
@@ -299,7 +301,8 @@ def render_chat_lateral(df_filtrado, data_inicio, data_fim, validador_selecionad
                                         border-radius: 15px; 
                                         border-bottom-left-radius: 5px;
                                         max-width: 80%;
-                                        word-wrap: break-word;">
+                                        word-wrap: break-word;
+                                        white-space: pre-wrap;">
                                 {content}
                             </div>
                         </div>
