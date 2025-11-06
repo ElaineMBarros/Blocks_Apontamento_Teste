@@ -264,26 +264,7 @@ def render_chat_lateral(df_filtrado, data_inicio, data_fim, validador_selecionad
         if openai_key:
             os.environ["OPENAI_API_KEY"] = openai_key
             
-            # Perguntas sugeridas
-            st.subheader("💡 Perguntas Rápidas")
-            
-            perguntas = [
-                "Resumo dos dados atuais",
-                "Quem trabalha mais?",
-                "Há sobrecarga?",
-                "Tendências do período",
-                "Outliers detectados"
-            ]
-            
-            for pergunta in perguntas:
-                # Evitar cliques múltiplos
-                if st.button(f"💬 {pergunta}", key=f"btn_{pergunta.replace(' ', '_').replace('?', '')}", use_container_width=True):
-                    if not ("processing_chat" in st.session_state and st.session_state.processing_chat):
-                        processar_pergunta_chat(pergunta, df_filtrado, data_inicio, data_fim, validador_selecionado, faixa_referencia, openai_key)
-            
-            st.markdown("---")
-            
-            # Histórico de chat em formato de conversa (ACIMA)
+            # Histórico de chat em formato de conversa
             if "chat_messages" in st.session_state and st.session_state.chat_messages:
                 st.subheader("💬 Histórico")
                 
@@ -328,7 +309,7 @@ def render_chat_lateral(df_filtrado, data_inicio, data_fim, validador_selecionad
                 
                 st.markdown("---")
             
-            # Input personalizado com formulário (EMBAIXO)
+            # Input personalizado com formulário
             with st.form("chat_form", clear_on_submit=True):
                 col_input, col_button = st.columns([4, 1])
                 with col_input:
@@ -338,6 +319,29 @@ def render_chat_lateral(df_filtrado, data_inicio, data_fim, validador_selecionad
                 
                 if submitted and pergunta_input and not ("processing_chat" in st.session_state and st.session_state.processing_chat):
                     processar_pergunta_chat(pergunta_input, df_filtrado, data_inicio, data_fim, validador_selecionado, faixa_referencia, openai_key)
+            
+            st.markdown("---")
+            
+            # Perguntas sugeridas (EMBAIXO)
+            st.subheader("💡 Perguntas Rápidas")
+            
+            perguntas = [
+                "Resumo dos dados atuais",
+                "Quem trabalha mais?",
+                "Há sobrecarga?",
+                "Tendências do período",
+                "Outliers detectados"
+            ]
+            
+            col1, col2 = st.columns(2)
+            for idx, pergunta in enumerate(perguntas):
+                col = col1 if idx % 2 == 0 else col2
+                with col:
+                    if st.button(f"💬 {pergunta}", key=f"btn_{pergunta.replace(' ', '_').replace('?', '')}", use_container_width=True):
+                        if not ("processing_chat" in st.session_state and st.session_state.processing_chat):
+                            processar_pergunta_chat(pergunta, df_filtrado, data_inicio, data_fim, validador_selecionado, faixa_referencia, openai_key)
+            
+            st.markdown("---")
             
             # Botão para limpar
             if st.button("🗑️ Limpar Chat", use_container_width=True):
@@ -457,8 +461,8 @@ Responda de forma clara, use dados específicos e foque em insights práticos so
         # Limpar flag de processamento
         st.session_state.processing_chat = False
         
-        # Mostrar resposta imediatamente
-        st.success("✅ Resposta gerada!")
+        # Forçar rerun para atualizar o histórico
+        st.rerun()
         
     except Exception as e:
         st.session_state.processing_chat = False
