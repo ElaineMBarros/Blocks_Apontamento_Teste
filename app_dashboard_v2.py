@@ -264,50 +264,53 @@ def render_chat_lateral(df_filtrado, data_inicio, data_fim, validador_selecionad
         if openai_key:
             os.environ["OPENAI_API_KEY"] = openai_key
             
-            # Histórico de chat em formato de conversa
+            # Histórico de chat em área scrollável
+            st.subheader("💬 Histórico")
+            
             if "chat_messages" in st.session_state and st.session_state.chat_messages:
-                st.subheader("💬 Histórico")
+                # Área scrollável com altura fixa
+                chat_html = '<div style="background-color: #f8f9fa; border-radius: 10px; padding: 1rem; border: 1px solid #dee2e6; height: 400px; overflow-y: auto;">'
                 
-                # Container com rolagem usando st.container
-                with st.container():
-                    # Mostrar mensagens em ordem (mais antigas primeiro, mais recentes embaixo)
-                    messages = st.session_state.chat_messages
-                    for msg in messages[-10:]:  # Últimas 10 mensagens
-                        role = msg["role"]
-                        content = msg["content"]
-                        
-                        if role == "user":
-                            # Mensagem do usuário (direita)
-                            st.markdown(f"""
-                            <div style="display: flex; justify-content: flex-end; margin-bottom: 1rem;">
-                                <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
-                                            color: white; 
-                                            padding: 0.75rem 1rem; 
-                                            border-radius: 15px; 
-                                            border-bottom-right-radius: 5px;
-                                            max-width: 80%;
-                                            word-wrap: break-word;">
-                                    {content}
-                                </div>
+                messages = st.session_state.chat_messages
+                for msg in messages[-10:]:  # Últimas 10 mensagens
+                    role = msg["role"]
+                    content = msg["content"]
+                    
+                    if role == "user":
+                        chat_html += f'''
+                        <div style="display: flex; justify-content: flex-end; margin-bottom: 1rem;">
+                            <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
+                                        color: white; 
+                                        padding: 0.75rem 1rem; 
+                                        border-radius: 15px; 
+                                        border-bottom-right-radius: 5px;
+                                        max-width: 80%;
+                                        word-wrap: break-word;">
+                                {content}
                             </div>
-                            """, unsafe_allow_html=True)
-                        elif role == "assistant":
-                            # Mensagem da IA (esquerda)
-                            st.markdown(f"""
-                            <div style="display: flex; justify-content: flex-start; margin-bottom: 1rem;">
-                                <div style="background-color: white; 
-                                            border: 1px solid #dee2e6;
-                                            padding: 0.75rem 1rem; 
-                                            border-radius: 15px; 
-                                            border-bottom-left-radius: 5px;
-                                            max-width: 80%;
-                                            word-wrap: break-word;">
-                                    {content}
-                                </div>
+                        </div>
+                        '''
+                    elif role == "assistant":
+                        chat_html += f'''
+                        <div style="display: flex; justify-content: flex-start; margin-bottom: 1rem;">
+                            <div style="background-color: white; 
+                                        border: 1px solid #dee2e6;
+                                        padding: 0.75rem 1rem; 
+                                        border-radius: 15px; 
+                                        border-bottom-left-radius: 5px;
+                                        max-width: 80%;
+                                        word-wrap: break-word;">
+                                {content}
                             </div>
-                            """, unsafe_allow_html=True)
+                        </div>
+                        '''
                 
-                st.markdown("---")
+                chat_html += '</div>'
+                st.markdown(chat_html, unsafe_allow_html=True)
+            else:
+                st.info("💭 Nenhuma conversa ainda. Faça uma pergunta ou use as sugestões abaixo!")
+            
+            st.markdown("---")
             
             # Input personalizado com formulário
             with st.form("chat_form", clear_on_submit=True):
@@ -320,9 +323,16 @@ def render_chat_lateral(df_filtrado, data_inicio, data_fim, validador_selecionad
                 if submitted and pergunta_input and not ("processing_chat" in st.session_state and st.session_state.processing_chat):
                     processar_pergunta_chat(pergunta_input, df_filtrado, data_inicio, data_fim, validador_selecionado, faixa_referencia, openai_key)
             
+            # Botão limpar logo abaixo do input
+            if st.button("🗑️ Limpar Chat", use_container_width=True):
+                st.session_state.chat_messages = []
+                if "processing_chat" in st.session_state:
+                    del st.session_state.processing_chat
+                st.rerun()
+            
             st.markdown("---")
             
-            # Perguntas sugeridas (EMBAIXO)
+            # Perguntas sugeridas no final
             st.subheader("💡 Perguntas Rápidas")
             
             perguntas = [
@@ -340,15 +350,6 @@ def render_chat_lateral(df_filtrado, data_inicio, data_fim, validador_selecionad
                     if st.button(f"💬 {pergunta}", key=f"btn_{pergunta.replace(' ', '_').replace('?', '')}", use_container_width=True):
                         if not ("processing_chat" in st.session_state and st.session_state.processing_chat):
                             processar_pergunta_chat(pergunta, df_filtrado, data_inicio, data_fim, validador_selecionado, faixa_referencia, openai_key)
-            
-            st.markdown("---")
-            
-            # Botão para limpar
-            if st.button("🗑️ Limpar Chat", use_container_width=True):
-                st.session_state.chat_messages = []
-                if "processing_chat" in st.session_state:
-                    del st.session_state.processing_chat
-                st.rerun()
         else:
             st.info("👆 Cole sua API Key acima")
     else:
