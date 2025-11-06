@@ -266,47 +266,48 @@ def render_chat_lateral(df_filtrado, data_inicio, data_fim, validador_selecionad
             st.subheader("💬 Histórico")
             
             if "chat_messages" in st.session_state and st.session_state.chat_messages:
-                # Área scrollável com altura fixa
-                chat_html = '<div style="background-color: #f8f9fa; border-radius: 10px; padding: 1rem; border: 1px solid #dee2e6; height: 400px; overflow-y: auto;">'
-                
-                messages = st.session_state.chat_messages
-                for msg in messages[-10:]:  # Últimas 10 mensagens
-                    role = msg["role"]
-                    content = html.escape(msg["content"])  # Escapar HTML
-                    
-                    if role == "user":
-                        chat_html += f'''
-                        <div style="display: flex; justify-content: flex-end; margin-bottom: 1rem;">
-                            <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
-                                        color: white; 
-                                        padding: 0.75rem 1rem; 
-                                        border-radius: 15px; 
-                                        border-bottom-right-radius: 5px;
-                                        max-width: 80%;
-                                        word-wrap: break-word;
-                                        white-space: pre-wrap;">
-                                {content}
+                # Container scrollável
+                with st.container(height=400, border=True):
+                    messages = st.session_state.chat_messages
+                    for msg in messages[-10:]:  # Últimas 10 mensagens
+                        role = msg["role"]
+                        content = msg["content"]
+                        
+                        if role == "user":
+                            # Mensagem do usuário (direita, roxo)
+                            st.markdown(f"""
+                            <div style="display: flex; justify-content: flex-end; margin-bottom: 0.5rem;">
+                                <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
+                                            color: white; 
+                                            padding: 0.75rem 1rem; 
+                                            border-radius: 15px; 
+                                            border-bottom-right-radius: 5px;
+                                            max-width: 80%;
+                                            word-wrap: break-word;">
+                                    👤 Você
+                                </div>
                             </div>
-                        </div>
-                        '''
-                    elif role == "assistant":
-                        chat_html += f'''
-                        <div style="display: flex; justify-content: flex-start; margin-bottom: 1rem;">
-                            <div style="background-color: white; 
-                                        border: 1px solid #dee2e6;
-                                        padding: 0.75rem 1rem; 
-                                        border-radius: 15px; 
-                                        border-bottom-left-radius: 5px;
-                                        max-width: 80%;
-                                        word-wrap: break-word;
-                                        white-space: pre-wrap;">
-                                {content}
+                            """, unsafe_allow_html=True)
+                            st.markdown(f"**{content}**")
+                            
+                        elif role == "assistant":
+                            # Mensagem da IA (esquerda, branco)
+                            st.markdown(f"""
+                            <div style="display: flex; justify-content: flex-start; margin-bottom: 0.5rem;">
+                                <div style="background-color: #e8f5e8; 
+                                            border: 1px solid #28a745;
+                                            padding: 0.75rem 1rem; 
+                                            border-radius: 15px; 
+                                            border-bottom-left-radius: 5px;
+                                            max-width: 80%;
+                                            word-wrap: break-word;">
+                                    🤖 IA
+                                </div>
                             </div>
-                        </div>
-                        '''
-                
-                chat_html += '</div>'
-                st.markdown(chat_html, unsafe_allow_html=True)
+                            """, unsafe_allow_html=True)
+                            st.markdown(content)
+                        
+                        st.markdown("---")
             else:
                 st.info("💭 Nenhuma conversa ainda. Faça uma pergunta ou use as sugestões abaixo!")
             
