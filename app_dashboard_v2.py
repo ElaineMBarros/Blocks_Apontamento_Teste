@@ -447,41 +447,56 @@ with st.sidebar:
     
     with col_periodo1:
         if st.button("📅 Últimos 7 dias", use_container_width=True):
-            data_inicio = data_max - timedelta(days=6)  # 6 + hoje = 7 dias
-            data_fim = data_max
+            st.session_state['periodo_inicio'] = data_max - timedelta(days=6)
+            st.session_state['periodo_fim'] = data_max
             st.rerun()
     
     with col_periodo2:
         if st.button("📅 Últimos 15 dias", use_container_width=True):
-            data_inicio = data_max - timedelta(days=14)  # 14 + hoje = 15 dias
-            data_fim = data_max
+            st.session_state['periodo_inicio'] = data_max - timedelta(days=14)
+            st.session_state['periodo_fim'] = data_max
             st.rerun()
     
     with col_periodo3:
         if st.button("📅 Últimos 30 dias", use_container_width=True):
-            data_inicio = data_max - timedelta(days=29)  # 29 + hoje = 30 dias
-            data_fim = data_max
+            st.session_state['periodo_inicio'] = data_max - timedelta(days=29)
+            st.session_state['periodo_fim'] = data_max
             st.rerun()
     
     st.subheader("📅 Seleção Manual")
+    
+    # Usar session_state se disponível, senão usar padrão
+    if 'periodo_inicio' not in st.session_state:
+        st.session_state['periodo_inicio'] = data_inicio_padrao
+    if 'periodo_fim' not in st.session_state:
+        st.session_state['periodo_fim'] = data_max
     
     col1, col2 = st.columns(2)
     with col1:
         data_inicio = st.date_input(
             "Data Início",
-            value=data_inicio_padrao,  # ✅ Padrão: últimos 30 dias
+            value=st.session_state['periodo_inicio'],
             min_value=data_min_permitida,
             max_value=data_max,
-            help="Período limitado aos últimos 90 dias"
+            help="Período limitado aos últimos 90 dias",
+            key='date_inicio_input'
         )
+        # Atualizar session_state quando usuário muda manualmente
+        if data_inicio != st.session_state['periodo_inicio']:
+            st.session_state['periodo_inicio'] = data_inicio
+    
     with col2:
         data_fim = st.date_input(
             "Data Fim",
-            value=data_max,
+            value=st.session_state['periodo_fim'],
             min_value=data_min_permitida,
             max_value=data_max,
-            help="Período limitado aos últimos 90 dias"
+            help="Período limitado aos últimos 90 dias",
+            key='date_fim_input'
         )
+        # Atualizar session_state quando usuário muda manualmente
+        if data_fim != st.session_state['periodo_fim']:
+            st.session_state['periodo_fim'] = data_fim
     
     # Validação: máximo 30 dias de intervalo
     if data_inicio and data_fim:
