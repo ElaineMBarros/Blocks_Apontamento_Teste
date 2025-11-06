@@ -243,13 +243,10 @@ def render_chat_lateral(df_filtrado, data_inicio, data_fim, validador_selecionad
         try:
             # Streamlit Cloud secrets (produção)
             openai_key = st.secrets["OPENAI_API_KEY"]
-            st.success("🔑 API Key carregada (Streamlit Cloud)")
         except:
             try:
                 # Variáveis de ambiente (local)
                 openai_key = os.getenv("OPENAI_API_KEY")
-                if openai_key:
-                    st.success("🔑 API Key carregada (Variável de ambiente)")
             except:
                 pass
         
