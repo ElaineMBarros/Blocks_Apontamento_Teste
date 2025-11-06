@@ -128,26 +128,43 @@ def carregar_dados():
                 df_agrupado['total_apontamentos_dia'] = df.groupby(['s_nm_recurso', 'data']).size().values
                 df_agrupado['tipo_analise'] = 'AGRUPADO_POR_DIA'
                 
-                # ========== AJUSTE 6: CÁLCULO DE HORAS EXTRAS ==========
-                # Calcular horas extras (acima de 8 horas por dia)
-                df_agrupado['horas_extras'] = df_agrupado['duracao_horas'].apply(
+                # ========== AJUSTES SOLICITADOS PELO CLIENTE ==========
+                
+                # AJUSTE 1: IDENTIFICAR DIA ÚTIL vs NÃO ÚTIL
+                # Seg-Sex = Dia Útil (0-4), Sáb-Dom = Não Útil (5-6)
+                df_agrupado['dia_semana_num'] = df_agrupado['data'].dt.dayofweek
+                df_agrupado['tipo_dia'] = df_agrupado['dia_semana_num'].apply(
+                    lambda x: '📅 Dia Útil' if x < 5 else '🏖️ Fim de Semana'
+                )
+                df_agrupado['nome_dia'] = df_agrupado['data'].dt.day_name()
+                df_agrupado['eh_dia_util'] = df_agrupado['dia_semana_num'] < 5
+                
+                # AJUSTE 2: DESCONTO DE 1H DE ALMOÇO
+                # Descontar 1h de almoço das horas trabalhadas
+                df_agrupado['duracao_bruta'] = df_agrupado['duracao_horas']  # Salvar original
+                df_agrupado['horas_almoco'] = 1.0  # 1h de almoço
+                df_agrupado['duracao_liquida'] = (df_agrupado['duracao_horas'] - df_agrupado['horas_almoco']).clip(lower=0)
+                
+                # AJUSTE 3: RECALCULAR HORAS EXTRAS (após desconto de almoço)
+                # Horas extras = tudo acima de 8h APÓS descontar 1h de almoço
+                df_agrupado['horas_extras'] = df_agrupado['duracao_liquida'].apply(
                     lambda x: max(0, x - 8) if x > 8 else 0
                 )
                 
-                # Calcular valor das horas pagas (horas normais + horas extras com adicional de 50%)
-                # - Horas até 8: valor normal (1x)
-                # - Horas acima de 8: valor com adicional de 50% (1.5x)
-                df_agrupado['horas_pagas'] = df_agrupado.apply(
-                    lambda row: min(8, row['duracao_horas']) + (row['horas_extras'] * 1.5), 
-                    axis=1
+                # Calcular horas normais (até 8h)
+                df_agrupado['horas_normais'] = df_agrupado['duracao_liquida'].apply(
+                    lambda x: min(8, x)
                 )
                 
-                # Adicionar indicadores visuais
+                # Calcular horas pagas (horas normais + extras com adicional 50%)
+                df_agrupado['horas_pagas'] = df_agrupado['horas_normais'] + (df_agrupado['horas_extras'] * 1.5)
+                
+                # Indicadores visuais
                 df_agrupado['possui_hora_extra'] = df_agrupado['horas_extras'] > 0
-                df_agrupado['classificacao_jornada'] = df_agrupado['duracao_horas'].apply(
-                    lambda x: 'Jornada Completa' if 7.5 <= x <= 8.5 
-                             else 'Jornada Reduzida' if x < 7.5
-                             else 'Hora Extra'
+                df_agrupado['classificacao_jornada'] = df_agrupado['duracao_liquida'].apply(
+                    lambda x: '✅ Jornada Completa' if 7.5 <= x <= 8.5 
+                             else '⚠️ Jornada Reduzida' if x < 7.5
+                             else '🔴 Hora Extra'
                 )
                 
                 return df_agrupado
@@ -293,17 +310,31 @@ def processar_pergunta_chat(pergunta, df_filtrado, data_inicio, data_fim, valida
             client = OpenAI(api_key=openai_key)
             
             # Preparar contexto com dados filtrados
+            total_horas_brutas = df_filtrado['duracao_bruta'].sum() if 'duracao_bruta' in df_filtrado.columns else df_filtrado['duracao_horas'].sum()
+            total_horas_liquidas = df_filtrado['duracao_liquida'].sum() if 'duracao_liquida' in df_filtrado.columns else 0
+            total_horas_extras = df_filtrado['horas_extras'].sum() if 'horas_extras' in df_filtrado.columns else 0
+            total_horas_pagas = df_filtrado['horas_pagas'].sum() if 'horas_pagas' in df_filtrado.columns else 0
+            
+            # Estatísticas de dias úteis vs não úteis
+            dias_uteis = len(df_filtrado[df_filtrado['eh_dia_util'] == True]) if 'eh_dia_util' in df_filtrado.columns else 0
+            dias_nao_uteis = len(df_filtrado[df_filtrado['eh_dia_util'] == False]) if 'eh_dia_util' in df_filtrado.columns else 0
+            
             stats = {
                 'total_registros': len(df_filtrado),
                 'periodo': f"{data_inicio} a {data_fim}",
                 'validador': validador_selecionado,
                 'faixa_referencia': faixa_referencia,
-                'total_horas': df_filtrado['duracao_horas'].sum(),
+                'total_horas_brutas': total_horas_brutas,
+                'total_horas_liquidas': total_horas_liquidas,
+                'total_horas_extras': total_horas_extras,
+                'total_horas_pagas': total_horas_pagas,
                 'media_horas': df_filtrado['duracao_horas'].mean(),
                 'abaixo': len(df_filtrado[df_filtrado['classificacao'] == 'Abaixo']),
                 'normal': len(df_filtrado[df_filtrado['classificacao'] == 'Normal']),
                 'acima': len(df_filtrado[df_filtrado['classificacao'] == 'Acima']),
                 'funcionarios': df_filtrado['s_nm_recurso'].nunique(),
+                'dias_uteis': dias_uteis,
+                'dias_nao_uteis': dias_nao_uteis,
                 'top_3_func': df_filtrado.groupby('s_nm_recurso')['duracao_horas'].sum().nlargest(3).to_dict()
             }
             
@@ -311,24 +342,41 @@ def processar_pergunta_chat(pergunta, df_filtrado, data_inicio, data_fim, valida
 Você é um assistente especializado em análise de dados de apontamentos de trabalho.
 Forneça respostas detalhadas e estruturadas baseadas nos dados apresentados.
 
+REGRAS DE CÁLCULO APLICADAS:
+✅ Desconto de 1h de almoço por dia (já aplicado nos dados)
+✅ Classificação de dia útil (seg-sex) vs final de semana (sáb-dom)
+✅ Horas extras = tudo acima de 8h APÓS desconto do almoço
+✅ Horas pagas = horas normais + (horas extras × 1.5)
+
 DADOS ATUAIS FILTRADOS:
 - Período: {stats['periodo']}
 - Validador: {stats['validador']}
 - Faixa de referência: {stats['faixa_referencia']}h
-- Total de apontamentos: {stats['total_registros']}
-- Total de horas: {stats['total_horas']:.2f}h
-- Média por apontamento: {stats['media_horas']:.2f}h
+- Total de jornadas: {stats['total_registros']}
+- Dias úteis: {stats['dias_uteis']} | Fins de semana: {stats['dias_nao_uteis']}
 - Funcionários únicos: {stats['funcionarios']}
+
+HORAS TRABALHADAS:
+- Horas brutas (com almoço): {stats['total_horas_brutas']:.2f}h
+- Horas líquidas (sem almoço): {stats['total_horas_liquidas']:.2f}h  
+- Horas extras (>8h/dia): {stats['total_horas_extras']:.2f}h
+- Horas pagas (com 50% extras): {stats['total_horas_pagas']:.2f}h
+- Média por jornada: {stats['media_horas']:.2f}h
 
 DISTRIBUIÇÃO:
 - Abaixo da faixa: {stats['abaixo']} ({stats['abaixo']/stats['total_registros']*100:.1f}%)
 - Normal: {stats['normal']} ({stats['normal']/stats['total_registros']*100:.1f}%)
 - Acima da faixa: {stats['acima']} ({stats['acima']/stats['total_registros']*100:.1f}%)
 
-TOP 3 FUNCIONÁRIOS (horas):
+TOP 3 FUNCIONÁRIOS (horas brutas):
 {chr(10).join([f"- {nome}: {horas:.2f}h" for nome, horas in stats['top_3_func'].items()])}
 
-Responda de forma clara e use dados específicos. Foque em insights práticos.
+IMPORTANTE: Ao responder sobre horas extras, sempre considere que:
+- Horas extras são calculadas APÓS desconto de 1h de almoço
+- Exemplo: 10h trabalhadas = 9h líquidas = 1h extra (9h - 8h)
+- Dias úteis vs fins de semana podem ter padrões diferentes
+
+Responda de forma clara, use dados específicos e foque em insights práticos sobre produtividade e custos.
 """
             
             completion = client.chat.completions.create(
@@ -640,17 +688,27 @@ with col_main:
     with tab1:
         st.header("🚨 Apontamentos Fora do Padrão")
         
+        st.info("ℹ️ **Nota:** Alertas consideram horas líquidas (após desconto de 1h de almoço)")
+        
         # Apontamentos ABAIXO da faixa
-        st.subheader(f"⬇️ Apontamentos Abaixo de {int(faixa_referencia)}h")
+        st.subheader(f"⬇️ Apontamentos Abaixo de {int(faixa_referencia)}h (líquidas)")
         df_abaixo = df_filtrado[df_filtrado['classificacao'] == 'Abaixo'].sort_values('duracao_horas')
         
         if len(df_abaixo) > 0:
             for idx, row in df_abaixo.head(20).iterrows():
-                # Garantir que duracao é numérica
-                duracao = float(row['duracao_horas'])
-                diferenca = faixa_referencia - duracao
-                horas = int(duracao)
-                minutos = int((duracao - horas) * 60)
+                # Usar horas líquidas (após desconto de almoço)
+                duracao_bruta = float(row['duracao_bruta']) if 'duracao_bruta' in row else float(row['duracao_horas'])
+                duracao_liquida = float(row['duracao_liquida']) if 'duracao_liquida' in row else duracao_bruta - 1.0
+                diferenca = faixa_referencia - duracao_liquida
+                
+                horas_bruta = int(duracao_bruta)
+                minutos_bruta = int((duracao_bruta - horas_bruta) * 60)
+                
+                horas_liquida = int(duracao_liquida)
+                minutos_liquida = int((duracao_liquida - horas_liquida) * 60)
+                
+                # Tipo de dia
+                tipo_dia = str(row['tipo_dia']) if 'tipo_dia' in row else ''
                 
                 # Pegar nome da operação com segurança
                 operacao = str(row['s_ds_operacao'])[:50] if pd.notna(row['s_ds_operacao']) else 'N/A'
@@ -658,10 +716,11 @@ with col_main:
                 
                 st.markdown(f"""
                 <div class="alert-box alert-low">
-                    <strong>📅 {row['data'].strftime('%d/%m/%Y')}</strong> - 
+                    <strong>📅 {row['data'].strftime('%d/%m/%Y')}</strong> {tipo_dia} - 
                     <strong>{nome}</strong><br>
-                    ⏱️ Duração: {horas}h{minutos:02d}min ({duracao:.2f}h)<br>
-                    ⚠️ Falta: {diferenca:.2f}h para atingir {int(faixa_referencia)}h<br>
+                    ⏱️ Apontado: {horas_bruta}h{minutos_bruta:02d}min ({duracao_bruta:.2f}h)<br>
+                    🍽️ Líquido (após almoço): {horas_liquida}h{minutos_liquida:02d}min ({duracao_liquida:.2f}h)<br>
+                    ⚠️ Falta: {diferenca:.2f}h para atingir {int(faixa_referencia)}h líquidas<br>
                     📝 Operação: {operacao}...
                 </div>
                 """, unsafe_allow_html=True)
@@ -671,16 +730,24 @@ with col_main:
         st.markdown("---")
         
         # Apontamentos ACIMA da faixa
-        st.subheader(f"⬆️ Apontamentos Acima de {int(faixa_referencia)}h")
+        st.subheader(f"⬆️ Apontamentos Acima de {int(faixa_referencia)}h (com horas extras)")
         df_acima = df_filtrado[df_filtrado['classificacao'] == 'Acima'].sort_values('duracao_horas', ascending=False)
         
         if len(df_acima) > 0:
             for idx, row in df_acima.head(20).iterrows():
-                # Garantir que duracao é numérica
-                duracao = float(row['duracao_horas'])
-                diferenca = duracao - faixa_referencia
-                horas = int(duracao)
-                minutos = int((duracao - horas) * 60)
+                # Usar horas líquidas e extras
+                duracao_bruta = float(row['duracao_bruta']) if 'duracao_bruta' in row else float(row['duracao_horas'])
+                duracao_liquida = float(row['duracao_liquida']) if 'duracao_liquida' in row else duracao_bruta - 1.0
+                horas_extras = float(row['horas_extras']) if 'horas_extras' in row else max(0, duracao_liquida - 8)
+                
+                horas_bruta = int(duracao_bruta)
+                minutos_bruta = int((duracao_bruta - horas_bruta) * 60)
+                
+                horas_liquida = int(duracao_liquida)
+                minutos_liquida = int((duracao_liquida - horas_liquida) * 60)
+                
+                # Tipo de dia
+                tipo_dia = str(row['tipo_dia']) if 'tipo_dia' in row else ''
                 
                 # Pegar nome da operação com segurança
                 operacao = str(row['s_ds_operacao'])[:50] if pd.notna(row['s_ds_operacao']) else 'N/A'
@@ -688,10 +755,11 @@ with col_main:
                 
                 st.markdown(f"""
                 <div class="alert-box alert-high">
-                    <strong>📅 {row['data'].strftime('%d/%m/%Y')}</strong> - 
+                    <strong>📅 {row['data'].strftime('%d/%m/%Y')}</strong> {tipo_dia} - 
                     <strong>{nome}</strong><br>
-                    ⏱️ Duração: {horas}h{minutos:02d}min ({duracao:.2f}h)<br>
-                    ⚠️ Excesso: {diferenca:.2f}h acima de {int(faixa_referencia)}h<br>
+                    ⏱️ Apontado: {horas_bruta}h{minutos_bruta:02d}min ({duracao_bruta:.2f}h)<br>
+                    🍽️ Líquido (após almoço): {horas_liquida}h{minutos_liquida:02d}min ({duracao_liquida:.2f}h)<br>
+                    🔴 Horas Extras: {horas_extras:.2f}h acima de 8h<br>
                     📝 Operação: {operacao}...
                 </div>
                 """, unsafe_allow_html=True)
