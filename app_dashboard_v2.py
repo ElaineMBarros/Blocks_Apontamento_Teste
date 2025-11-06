@@ -62,16 +62,46 @@ st.markdown("""
         border-radius: 10px;
         padding: 1rem;
         border: 1px solid #dee2e6;
-        height: 600px;
+        height: 500px;
         overflow-y: auto;
+        display: flex;
+        flex-direction: column-reverse;
+    }
+    .chat-message {
+        margin-bottom: 1rem;
+        display: flex;
+        align-items: flex-start;
+    }
+    .chat-message.user {
+        justify-content: flex-end;
+    }
+    .chat-message.assistant {
+        justify-content: flex-start;
+    }
+    .message-content {
+        max-width: 80%;
+        padding: 0.75rem 1rem;
+        border-radius: 15px;
+        word-wrap: break-word;
+    }
+    .message-content.user {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border-bottom-right-radius: 5px;
+    }
+    .message-content.assistant {
+        background-color: white;
+        border: 1px solid #dee2e6;
+        border-bottom-left-radius: 5px;
     }
     .chat-header {
         background: linear-gradient(90deg, #28a745 0%, #20c997 100%);
         color: white;
-        padding: 0.5rem 1rem;
-        border-radius: 5px;
+        padding: 0.75rem 1rem;
+        border-radius: 10px;
         margin-bottom: 1rem;
         font-weight: bold;
+        text-align: center;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -261,25 +291,38 @@ def render_chat_lateral(df_filtrado, data_inicio, data_fim, validador_selecionad
                 if submitted and pergunta_input and not ("processing_chat" in st.session_state and st.session_state.processing_chat):
                     processar_pergunta_chat(pergunta_input, df_filtrado, data_inicio, data_fim, validador_selecionado, faixa_referencia, openai_key)
             
-            # Histórico de chat
+            # Histórico de chat em formato de conversa
             if "chat_messages" in st.session_state and st.session_state.chat_messages:
-                st.subheader("💬 Conversas Recentes")
+                st.subheader("💬 Histórico")
                 
-                # Mostrar as últimas 3 conversas (pergunta + resposta)
+                # Container com rolagem para o histórico
+                chat_html = '<div class="chat-container">'
+                
+                # Mostrar mensagens (mais recentes no topo devido ao flex-direction: column-reverse)
                 messages = st.session_state.chat_messages
-                for i in range(len(messages) - 1, max(-1, len(messages) - 7), -1):  # Últimas 6 mensagens (3 pares)
-                    msg = messages[i]
-                    if msg["role"] == "user":
-                        with st.container():
-                            st.markdown(f"**👤**: {msg['content']}")
-                    elif msg["role"] == "assistant":
-                        with st.container():
-                            content = msg['content']
-                            # Mostrar resposta completa sem corte
-                            st.markdown(f"**🤖**: {content}")
+                for msg in reversed(messages[-10:]):  # Últimas 10 mensagens, invertidas
+                    role = msg["role"]
+                    content = msg["content"]
                     
-                    if i > 0:  # Não adicionar separador após a última mensagem
-                        st.markdown("---")
+                    if role == "user":
+                        chat_html += f'''
+                        <div class="chat-message user">
+                            <div class="message-content user">
+                                {content}
+                            </div>
+                        </div>
+                        '''
+                    elif role == "assistant":
+                        chat_html += f'''
+                        <div class="chat-message assistant">
+                            <div class="message-content assistant">
+                                {content}
+                            </div>
+                        </div>
+                        '''
+                
+                chat_html += '</div>'
+                st.markdown(chat_html, unsafe_allow_html=True)
             
             # Botão para limpar
             if st.button("🗑️ Limpar Chat", use_container_width=True):
